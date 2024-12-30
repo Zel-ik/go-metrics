@@ -39,12 +39,8 @@ func (m *MemStorage) change(key, value string) {
 	m.metrics[key] = value
 }
 
-func (m *MemStorage) getList() {
-
-	fmt.Println(len(m.metrics))
-	for key, val := range m.metrics {
-		fmt.Println(key, " : ", val)
-	}
+func (m *MemStorage) getList() map[string]string {
+	return m.metrics
 }
 
 func main() {
@@ -84,15 +80,13 @@ func (m *MemStorage) postMetricsHandler(res http.ResponseWriter, req *http.Reque
 
 	switch values[0] {
 	case "gauge":
-		if val, err := strconv.ParseFloat(values[2], 64); err == nil {
-			fmt.Println(strconv.FormatFloat(val, 'g', -1, 64) + " value")
+		if _, err := strconv.ParseFloat(values[2], 64); err == nil {
 			res.WriteHeader(http.StatusOK)
 			m.change(values[1], values[2])
 			return
 		}
 	case "counter":
-		if val, err := strconv.Atoi(values[2]); err == nil && !strings.Contains(values[2], ".") {
-			fmt.Println(strconv.Itoa(val) + " value")
+		if _, err := strconv.Atoi(values[2]); err == nil && !strings.Contains(values[2], ".") {
 			res.WriteHeader(http.StatusOK)
 			m.add(values[1], values[2])
 			return
