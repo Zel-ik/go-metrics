@@ -1,56 +1,17 @@
 package main
 
 import (
-	"fmt"
-	"math/rand"
-	"net/http"
+	"github.com/stretchr/testify/assert"
 	"runtime"
-	"strconv"
-	"time"
+	"testing"
 )
 
-type Metric struct {
-	typpe string `json:"type"`
-	name  string
-	value float64
-}
-
-type MetricSlice [29]Metric
-type rtm runtime.MemStats
-
-const metricsLen = len(MetricSlice{})
-
-func main() {
-	apiUrl := "http://localhost:8080/update"
-	hc := http.Client{}
-	counterCycle := 0
-
+func TestFillMetrics(t *testing.T) {
 	var rtm runtime.MemStats
 	runtime.ReadMemStats(&rtm)
+	expectedMetricsSlice := fillSlice(rtm, 11)
 
-	for {
-		time.Sleep(time.Second * 2)
-		runtime.ReadMemStats(&rtm)
-		counterCycle += 1
-		metrics := fillSlice(rtm, float64(counterCycle))
-		if counterCycle%5 == 0 {
-			sendPostMetrics(apiUrl, &hc, metrics[rand.Intn(metricsLen-1)])
-		}
-	}
-}
-
-func sendPostMetrics(apiUrl string, hc *http.Client, metric Metric) {
-	apiUrl += "/" + metric.typpe + "/" + metric.name + "/" + strconv.FormatFloat(metric.value, 'f', -1, 64)
-	req, err := http.NewRequest("POST", apiUrl, nil)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	hc.Do(req)
-}
-
-func fillSlice(rtm runtime.MemStats, pullCounter float64) MetricSlice {
-	metricSlice := MetricSlice{
+	actualMetricsSlice := MetricSlice{
 		Metric{typpe: "gauge", name: "Alloc", value: float64(rtm.Alloc)},
 		Metric{typpe: "gauge", name: "BuckHashSys", value: float64(rtm.BuckHashSys)},
 		Metric{typpe: "gauge", name: "Frees", value: float64(rtm.Frees)},
@@ -78,8 +39,10 @@ func fillSlice(rtm runtime.MemStats, pullCounter float64) MetricSlice {
 		Metric{typpe: "gauge", name: "StackSys", value: float64(rtm.StackSys)},
 		Metric{typpe: "gauge", name: "Sys", value: float64(rtm.Sys)},
 		Metric{typpe: "gauge", name: "TotalAlloc", value: float64(rtm.TotalAlloc)},
-		Metric{typpe: "counter", name: "PollCount", value: pullCounter},
-		Metric{typpe: "gauge", name: "RandomValue ", value: float64(rand.Intn(metricsLen))},
+		Metric{typpe: "counter", name: "PollCount", value: float64(11)},
+		Metric{typpe: "gauge", name: "RandomValue ", value: expectedMetricsSlice[metricsLen-1].value},
 	}
-	return metricSlice
+
+	assert.NotEmpty(t, expectedMetricsSlice)
+	assert.Equal(t, expectedMetricsSlice, actualMetricsSlice)
 }
