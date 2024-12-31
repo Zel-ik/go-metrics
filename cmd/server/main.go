@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -60,7 +61,13 @@ func (m *MemStorage) getMetricsHandler(res http.ResponseWriter, req *http.Reques
 		res.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	m.getList()
+
+	data, err := json.MarshalIndent(m.getList(), "", "    ")
+	if err != nil {
+		fmt.Print(err)
+	}
+	res.Write(data)
+	fmt.Println(data)
 }
 
 func (m *MemStorage) postMetricsHandler(res http.ResponseWriter, req *http.Request) {
@@ -83,12 +90,14 @@ func (m *MemStorage) postMetricsHandler(res http.ResponseWriter, req *http.Reque
 		if _, err := strconv.ParseFloat(values[2], 64); err == nil {
 			res.WriteHeader(http.StatusOK)
 			m.change(values[1], values[2])
+			fmt.Println(values[1] + ": " + values[2])
 			return
 		}
 	case "counter":
 		if _, err := strconv.Atoi(values[2]); err == nil && !strings.Contains(values[2], ".") {
 			res.WriteHeader(http.StatusOK)
 			m.add(values[1], values[2])
+			fmt.Println(values[1] + ": " + values[2])
 			return
 		}
 	default:
