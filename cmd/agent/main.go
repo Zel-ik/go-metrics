@@ -36,7 +36,6 @@ func main() {
 		runtime.ReadMemStats(&rtm)
 		counterCycle += 1
 		metrics := fillSlice(rtm, float64(counterCycle))
-		//TODO дорабоать алгоритм
 		if newRepItCounter-pollInterval <= pollInterval {
 			time.Sleep(time.Second * time.Duration(newRepItCounter))
 
