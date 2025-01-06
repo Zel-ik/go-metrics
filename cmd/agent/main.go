@@ -22,29 +22,40 @@ const metricsLen = len(MetricSlice{})
 
 func main() {
 	client := resty.New()
-	//apiUrl := "http://localhost:8080/update"
+
+	parseFlags()
+	basicUrl := "http://localhost" + flagRunAddr
 	counterCycle := 0
 
 	var rtm runtime.MemStats
 	runtime.ReadMemStats(&rtm)
+	newRepItCounter := reportInterval
 
 	for {
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * time.Duration(pollInterval))
 		runtime.ReadMemStats(&rtm)
 		counterCycle += 1
 		metrics := fillSlice(rtm, float64(counterCycle))
-		if counterCycle%5 == 0 {
+		//TODO дорабоать алгоритм
+		if newRepItCounter-pollInterval <= pollInterval {
+			time.Sleep(time.Second * time.Duration(newRepItCounter))
+
 			metricForSend := metrics[rand.Intn(metricsLen-1)]
 			resp, err := client.R().
 				SetHeader("Content-Type", "application/json").
 				SetPathParam("type", metricForSend.typpe).
 				SetPathParam("name", metricForSend.name).
 				SetPathParam("value", strconv.FormatFloat(metricForSend.value, 'f', -1, 64)).
-				Post("http://localhost:8080/update/{type}/{name}/{value}")
+				Post(basicUrl + "/update/{type}/{name}/{value}")
 			if err != nil {
 				fmt.Println(err)
 			}
+
+			newRepItCounter = reportInterval
 			fmt.Println(resp)
+		} else {
+			newRepItCounter -= pollInterval
+			fmt.Println(newRepItCounter)
 		}
 	}
 }

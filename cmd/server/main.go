@@ -59,8 +59,9 @@ func MetricRouter() chi.Router {
 }
 
 func main() {
+	parseFlags()
 
-	err := http.ListenAndServe(`:8080`, MetricRouter())
+	err := http.ListenAndServe(flagRunAddr, MetricRouter())
 	if err != nil {
 		fmt.Print(err)
 	}
