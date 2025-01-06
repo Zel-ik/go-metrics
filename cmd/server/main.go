@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,16 +45,53 @@ func (m *MemStorage) getList() map[string]string {
 	return m.metrics
 }
 
-func main() {
+func MetricRouter() chi.Router {
+	chiRouter := chi.NewRouter()
 	memCashe := NewMemoryStore()
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/list`, memCashe.getMetricsHandler)
-	mux.HandleFunc(`/update/`, memCashe.postMetricsHandler)
 
-	err := http.ListenAndServe(`:8080`, mux)
+	chiRouter.Route("/update", func(r chi.Router) {
+		r.Route("/{type}/{name}/{value}", func(r chi.Router) {
+			r.Post("/", memCashe.postMetricsHandler)
+		})
+	})
+	chiRouter.Get("/list", memCashe.getMetricsHandler)
+	return chiRouter
+}
+
+func main() {
+
+	err := http.ListenAndServe(`:8080`, MetricRouter())
 	if err != nil {
 		fmt.Print(err)
 	}
+}
+
+func (m *MemStorage) postMetricsHandler(res http.ResponseWriter, req *http.Request) {
+	if chi.URLParam(req, "type") == "" || chi.URLParam(req, "name") == "" {
+		res.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	switch chi.URLParam(req, "type") {
+	case "gauge":
+		if _, err := strconv.ParseFloat(chi.URLParam(req, "value"), 64); err == nil {
+			res.WriteHeader(http.StatusOK)
+			m.change(chi.URLParam(req, "name"), chi.URLParam(req, "value"))
+			fmt.Println(chi.URLParam(req, "name") + ": " + chi.URLParam(req, "value"))
+			return
+		}
+	case "counter":
+		if _, err := strconv.Atoi(chi.URLParam(req, "value")); err == nil && !strings.Contains(chi.URLParam(req, "value"), ".") {
+			res.WriteHeader(http.StatusOK)
+			m.add(chi.URLParam(req, "name"), chi.URLParam(req, "value"))
+			fmt.Println(chi.URLParam(req, "name") + ": " + chi.URLParam(req, "value"))
+			return
+		}
+	default:
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	res.WriteHeader(http.StatusBadRequest)
 }
 
 func (m *MemStorage) getMetricsHandler(res http.ResponseWriter, req *http.Request) {
@@ -68,40 +106,4 @@ func (m *MemStorage) getMetricsHandler(res http.ResponseWriter, req *http.Reques
 	}
 	res.Write(data)
 	fmt.Println(data)
-}
-
-func (m *MemStorage) postMetricsHandler(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		res.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	uri := req.RequestURI
-	uri = strings.Replace(uri, "/update/", "", 1)
-	values := strings.Split(uri, "/")
-
-	if len(values) < 3 {
-		res.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	switch values[0] {
-	case "gauge":
-		if _, err := strconv.ParseFloat(values[2], 64); err == nil {
-			res.WriteHeader(http.StatusOK)
-			m.change(values[1], values[2])
-			fmt.Println(values[1] + ": " + values[2])
-			return
-		}
-	case "counter":
-		if _, err := strconv.Atoi(values[2]); err == nil && !strings.Contains(values[2], ".") {
-			res.WriteHeader(http.StatusOK)
-			m.add(values[1], values[2])
-			fmt.Println(values[1] + ": " + values[2])
-			return
-		}
-	default:
-		res.WriteHeader(http.StatusBadRequest)
-	}
-	res.WriteHeader(http.StatusBadRequest)
 }

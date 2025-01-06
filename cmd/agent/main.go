@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-resty/resty/v2"
 	"math/rand"
-	"net/http"
 	"runtime"
 	"strconv"
 	"time"
@@ -21,8 +21,8 @@ type rtm runtime.MemStats
 const metricsLen = len(MetricSlice{})
 
 func main() {
-	apiUrl := "http://localhost:8080/update"
-	hc := http.Client{}
+	client := resty.New()
+	//apiUrl := "http://localhost:8080/update"
 	counterCycle := 0
 
 	var rtm runtime.MemStats
@@ -34,19 +34,19 @@ func main() {
 		counterCycle += 1
 		metrics := fillSlice(rtm, float64(counterCycle))
 		if counterCycle%5 == 0 {
-			sendPostMetrics(apiUrl, &hc, metrics[rand.Intn(metricsLen-1)])
+			metricForSend := metrics[rand.Intn(metricsLen-1)]
+			resp, err := client.R().
+				SetHeader("Content-Type", "application/json").
+				SetPathParam("type", metricForSend.typpe).
+				SetPathParam("name", metricForSend.name).
+				SetPathParam("value", strconv.FormatFloat(metricForSend.value, 'f', -1, 64)).
+				Post("http://localhost:8080/update/{type}/{name}/{value}")
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println(resp)
 		}
 	}
-}
-
-func sendPostMetrics(apiUrl string, hc *http.Client, metric Metric) {
-	apiUrl += "/" + metric.typpe + "/" + metric.name + "/" + strconv.FormatFloat(metric.value, 'f', -1, 64)
-	req, err := http.NewRequest("POST", apiUrl, nil)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	hc.Do(req)
 }
 
 func fillSlice(rtm runtime.MemStats, pullCounter float64) MetricSlice {
